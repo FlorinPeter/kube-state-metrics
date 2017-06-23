@@ -111,6 +111,7 @@ type options struct {
 	apiserver  string
 	kubeconfig string
 	help       bool
+	bindIp     string
 	port       int
 	collectors collectorSet
 }
@@ -126,7 +127,7 @@ func main() {
 	flags.BoolVar(&options.inCluster, "in-cluster", true, `If true, use the built in kubernetes cluster for creating the client`)
 	flags.StringVar(&options.apiserver, "apiserver", "", `The URL of the apiserver to use as a master`)
 	flags.StringVar(&options.kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file")
-	flags.StringVar(&options.bindIp, "bind-ip", "0.0.0.0", "bind to ip")
+	flags.StringVar(&options.bindIp, "bind-ip", "", "bind to ip")
 	flags.BoolVarP(&options.help, "help", "h", false, "Print help text")
 	flags.IntVar(&options.port, "port", 80, `Port to expose metrics on.`)
 	flags.Var(&options.collectors, "collectors", "Collectors to be enabled")
