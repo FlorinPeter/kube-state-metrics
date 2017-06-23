@@ -126,6 +126,7 @@ func main() {
 	flags.BoolVar(&options.inCluster, "in-cluster", true, `If true, use the built in kubernetes cluster for creating the client`)
 	flags.StringVar(&options.apiserver, "apiserver", "", `The URL of the apiserver to use as a master`)
 	flags.StringVar(&options.kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file")
+	flags.StringVar(&options.bindIp, "bind-ip", "0.0.0.0", "bind to ip")
 	flags.BoolVarP(&options.help, "help", "h", false, "Print help text")
 	flags.IntVar(&options.port, "port", 80, `Port to expose metrics on.`)
 	flags.Var(&options.collectors, "collectors", "Collectors to be enabled")
@@ -169,7 +170,7 @@ func main() {
 
 	registry := prometheus.NewRegistry()
 	registerCollectors(registry, kubeClient, collectors)
-	metricsServer(registry, options.port)
+	metricsServer(registry, options.bindIp, options.port)
 }
 
 func isNotExists(file string) bool {
@@ -232,9 +233,9 @@ func createKubeClient(inCluster bool, apiserver string, kubeconfig string) (kube
 	return kubeClient, nil
 }
 
-func metricsServer(registry prometheus.Gatherer, port int) {
+func metricsServer(registry prometheus.Gatherer, bindIp string, port int) {
 	// Address to listen on for web interface and telemetry
-	listenAddress := fmt.Sprintf(":%d", port)
+	listenAddress := fmt.Sprintf("%s:%d", bindIp, port)
 
 	glog.Infof("Starting metrics server: %s", listenAddress)
 	// Add metricsPath
