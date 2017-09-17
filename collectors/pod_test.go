@@ -19,7 +19,8 @@ package collectors
 import (
 	"testing"
 
-	"k8s.io/client-go/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
@@ -35,6 +36,10 @@ func TestPodCollector(t *testing.T) {
 	// Fixed metadata on type and help text. We prepend this to every expected
 	// output so we only have to modify a single place when doing adjustments.
 	var test = true
+
+	startTime := 1501569018
+	metav1StartTime := metav1.Unix(int64(startTime), 0)
+
 	const metadata = `
 		# HELP kube_pod_container_info Information about a container in a pod.
 		# TYPE kube_pod_container_info gauge
@@ -52,6 +57,10 @@ func TestPodCollector(t *testing.T) {
 		# TYPE kube_pod_container_status_waiting gauge
 		# HELP kube_pod_info Information about pod.
 		# TYPE kube_pod_info gauge
+		# HELP kube_pod_start_time Start time in unix timestamp for a pod.
+		# TYPE kube_pod_start_time gauge
+		# HELP kube_pod_owner Information about the Pod's owner.
+		# TYPE kube_pod_owner gauge
 		# HELP kube_pod_status_phase The pods current phase.
 		# TYPE kube_pod_status_phase gauge
 		# HELP kube_pod_status_ready Describes whether the pod is ready to serve requests.
@@ -75,7 +84,7 @@ func TestPodCollector(t *testing.T) {
 		{
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -90,7 +99,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -121,7 +130,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -134,7 +143,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -161,7 +170,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -174,7 +183,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -201,7 +210,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -216,7 +225,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -257,7 +266,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -265,14 +274,15 @@ func TestPodCollector(t *testing.T) {
 						NodeName: "node1",
 					},
 					Status: v1.PodStatus{
-						HostIP: "1.1.1.1",
-						PodIP:  "1.2.3.4",
+						HostIP:    "1.1.1.1",
+						PodIP:     "1.2.3.4",
+						StartTime: &metav1StartTime,
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
-						OwnerReferences: []v1.OwnerReference{
+						OwnerReferences: []metav1.OwnerReference{
 							{
 								Kind:       "ReplicaSet",
 								Name:       "rs-name",
@@ -290,14 +300,17 @@ func TestPodCollector(t *testing.T) {
 				},
 			},
 			want: metadata + `
-				kube_pod_info{created_by="<none>",host_ip="1.1.1.1",namespace="ns1",pod="pod1",node="node1",pod_ip="1.2.3.4",owner_kind="<none>",owner_name="<none>",owner_is_controller="<none>"} 1
-				kube_pod_info{created_by="<none>",host_ip="1.1.1.1",namespace="ns2",pod="pod2",node="node2",pod_ip="2.3.4.5",owner_kind="ReplicaSet",owner_name="rs-name",owner_is_controller="true"} 1
+				kube_pod_info{created_by_kind="<none>",created_by_name="<none>",host_ip="1.1.1.1",namespace="ns1",pod="pod1",node="node1",pod_ip="1.2.3.4"} 1
+				kube_pod_info{created_by_kind="<none>",created_by_name="<none>",host_ip="1.1.1.1",namespace="ns2",pod="pod2",node="node2",pod_ip="2.3.4.5"} 1
+				kube_pod_start_time{namespace="ns1",pod="pod1"} 1501569018
+				kube_pod_owner{namespace="ns1",pod="pod1",owner_kind="<none>",owner_name="<none>",owner_is_controller="<none>"} 1
+				kube_pod_owner{namespace="ns2",pod="pod2",owner_kind="ReplicaSet",owner_name="rs-name",owner_is_controller="true"} 1
 				`,
-			metrics: []string{"kube_pod_info"},
+			metrics: []string{"kube_pod_info", "kube_pod_start_time", "kube_pod_owner"},
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -305,7 +318,7 @@ func TestPodCollector(t *testing.T) {
 						Phase: "Running",
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -315,14 +328,22 @@ func TestPodCollector(t *testing.T) {
 				},
 			},
 			want: metadata + `
+				kube_pod_status_phase{namespace="ns1",phase="Failed",pod="pod1"} 0
+				kube_pod_status_phase{namespace="ns1",phase="Pending",pod="pod1"} 0
 				kube_pod_status_phase{namespace="ns1",phase="Running",pod="pod1"} 1
+				kube_pod_status_phase{namespace="ns1",phase="Succeeded",pod="pod1"} 0
+				kube_pod_status_phase{namespace="ns1",phase="Unknown",pod="pod1"} 0
+				kube_pod_status_phase{namespace="ns2",phase="Failed",pod="pod2"} 0
 				kube_pod_status_phase{namespace="ns2",phase="Pending",pod="pod2"} 1
+				kube_pod_status_phase{namespace="ns2",phase="Running",pod="pod2"} 0
+				kube_pod_status_phase{namespace="ns2",phase="Succeeded",pod="pod2"} 0
+				kube_pod_status_phase{namespace="ns2",phase="Unknown",pod="pod2"} 0
 				`,
 			metrics: []string{"kube_pod_status_phase"},
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -335,7 +356,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -361,7 +382,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -374,7 +395,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -400,7 +421,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 					},
@@ -436,7 +457,7 @@ func TestPodCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod2",
 						Namespace: "ns2",
 					},
@@ -504,7 +525,7 @@ func TestPodCollector(t *testing.T) {
 		}, {
 			pods: []v1.Pod{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod1",
 						Namespace: "ns1",
 						Labels: map[string]string{

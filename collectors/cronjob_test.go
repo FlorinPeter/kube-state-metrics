@@ -17,21 +17,22 @@ limitations under the License.
 package collectors
 
 import (
-	"time"
 	"testing"
+	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/api/unversioned"
 	v2batch "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 )
 
 var (
-	SuspendTrue bool = true
-	SuspendFalse bool = false
+	SuspendTrue                bool  = true
+	SuspendFalse               bool  = false
 	StartingDeadlineSeconds300 int64 = 300
 
-	ActiveRunningCronJob1LastScheduleTime, _ = time.Parse(time.RFC3339, "2017-05-26T12:00:07Z")
-	SuspendedCronJob1LastScheduleTime, _ = time.Parse(time.RFC3339, "2017-05-26T17:30:00Z")
+	ActiveRunningCronJob1LastScheduleTime, _          = time.Parse(time.RFC3339, "2017-05-26T12:00:07Z")
+	SuspendedCronJob1LastScheduleTime, _              = time.Parse(time.RFC3339, "2017-05-26T17:30:00Z")
+	ActiveCronJob1NoLastScheduledCreationTimestamp, _ = time.Parse(time.RFC3339, "2017-05-26T18:30:00Z")
 )
 
 type mockCronJobStore struct {
@@ -55,61 +56,64 @@ func TestCronJobCollector(t *testing.T) {
 		# HELP kube_cronjob_status_active Active holds pointers to currently running jobs.
 		# TYPE kube_cronjob_status_active gauge
 		# HELP kube_cronjob_status_last_schedule_time LastScheduleTime keeps information of when was the last time the job was successfully scheduled.
-		# TYPE kube_cronjob_status_last_schedule_time counter
+		# TYPE kube_cronjob_status_last_schedule_time gauge
+		# HELP kube_cronjob_next_schedule_time Next time the cronjob should be scheduled. The time after lastScheduleTime, or after the cron job's creation time if it's never been scheduled. Use this to determine if the job is delayed.
+		# TYPE kube_cronjob_next_schedule_time gauge
 	`
 	cases := []struct {
 		cronJobs []v2batch.CronJob
-		want  string
+		want     string
 	}{
 		{
 			cronJobs: []v2batch.CronJob{
 				{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:       "ActiveRunningCronJob1",
 						Namespace:  "ns1",
 						Generation: 1,
 					},
 					Status: v2batch.CronJobStatus{
-						Active:           	[]v1.ObjectReference{v1.ObjectReference{Name: "FakeJob1"}, v1.ObjectReference{Name: "FakeJob2"}},
-						LastScheduleTime:	&unversioned.Time{Time: ActiveRunningCronJob1LastScheduleTime},
+						Active:           []v1.ObjectReference{v1.ObjectReference{Name: "FakeJob1"}, v1.ObjectReference{Name: "FakeJob2"}},
+						LastScheduleTime: &metav1.Time{Time: ActiveRunningCronJob1LastScheduleTime},
 					},
 					Spec: v2batch.CronJobSpec{
-						StartingDeadlineSeconds:	&StartingDeadlineSeconds300,
-						ConcurrencyPolicy:		"Forbid",
-						Suspend:			&SuspendFalse,
-						Schedule:			"0 */6 * * *",
+						StartingDeadlineSeconds: &StartingDeadlineSeconds300,
+						ConcurrencyPolicy:       "Forbid",
+						Suspend:                 &SuspendFalse,
+						Schedule:                "0 */6 * * *",
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:       "SuspendedCronJob1",
 						Namespace:  "ns1",
 						Generation: 1,
 					},
 					Status: v2batch.CronJobStatus{
-						Active:           	[]v1.ObjectReference{},
-						LastScheduleTime:	&unversioned.Time{Time: SuspendedCronJob1LastScheduleTime},
+						Active:           []v1.ObjectReference{},
+						LastScheduleTime: &metav1.Time{Time: SuspendedCronJob1LastScheduleTime},
 					},
 					Spec: v2batch.CronJobSpec{
-						StartingDeadlineSeconds:	&StartingDeadlineSeconds300,
-						ConcurrencyPolicy:		"Forbid",
-						Suspend:			&SuspendTrue,
-						Schedule:			"0 */3 * * *",
+						StartingDeadlineSeconds: &StartingDeadlineSeconds300,
+						ConcurrencyPolicy:       "Forbid",
+						Suspend:                 &SuspendTrue,
+						Schedule:                "0 */3 * * *",
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
-						Name:       "ActiveCronJob1NoLastScheduled",
-						Namespace:  "ns1",
-						Generation: 1,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "ActiveCronJob1NoLastScheduled",
+						CreationTimestamp: metav1.Time{Time: ActiveCronJob1NoLastScheduledCreationTimestamp},
+						Namespace:         "ns1",
+						Generation:        1,
 					},
 					Status: v2batch.CronJobStatus{
-						Active:           	[]v1.ObjectReference{},
-						LastScheduleTime:	nil,
+						Active:           []v1.ObjectReference{},
+						LastScheduleTime: nil,
 					},
 					Spec: v2batch.CronJobSpec{
-						StartingDeadlineSeconds:	&StartingDeadlineSeconds300,
-						ConcurrencyPolicy:		"Forbid",
-						Suspend:			&SuspendFalse,
-						Schedule:			"25 * * * *",
+						StartingDeadlineSeconds: &StartingDeadlineSeconds300,
+						ConcurrencyPolicy:       "Forbid",
+						Suspend:                 &SuspendFalse,
+						Schedule:                "25 * * * *",
 					},
 				},
 			},
@@ -117,6 +121,9 @@ func TestCronJobCollector(t *testing.T) {
 				kube_cronjob_info{concurrency_policy="Forbid",cronjob="ActiveRunningCronJob1",namespace="ns1",schedule="0 */6 * * *"} 1
 				kube_cronjob_info{concurrency_policy="Forbid",cronjob="SuspendedCronJob1",namespace="ns1",schedule="0 */3 * * *"} 1
 				kube_cronjob_info{concurrency_policy="Forbid",cronjob="ActiveCronJob1NoLastScheduled",namespace="ns1",schedule="25 * * * *"} 1
+
+				kube_cronjob_next_schedule_time{cronjob="ActiveCronJob1NoLastScheduled",namespace="ns1"} 1.4958267e+09
+				kube_cronjob_next_schedule_time{cronjob="ActiveRunningCronJob1",namespace="ns1"} 1.4958216e+09
 
 				kube_cronjob_spec_starting_deadline_seconds{cronjob="ActiveCronJob1NoLastScheduled",namespace="ns1"} 300
 				kube_cronjob_spec_starting_deadline_seconds{cronjob="ActiveRunningCronJob1",namespace="ns1"} 300

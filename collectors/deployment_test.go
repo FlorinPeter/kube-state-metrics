@@ -28,9 +28,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
-	"k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/pkg/util/intstr"
 )
 
 var (
@@ -71,6 +71,8 @@ func TestDeploymentCollector(t *testing.T) {
 		# TYPE kube_deployment_status_observed_generation gauge
                 # HELP kube_deployment_spec_strategy_rollingupdate_max_unavailable Maximum number of unavailable replicas during a rolling update of a deployment.
 		# TYPE kube_deployment_spec_strategy_rollingupdate_max_unavailable gauge
+		# HELP kube_deployment_labels Kubernetes labels converted to Prometheus labels.
+		# TYPE kube_deployment_labels gauge
 	`
 	cases := []struct {
 		depls []v1beta1.Deployment
@@ -79,9 +81,12 @@ func TestDeploymentCollector(t *testing.T) {
 		{
 			depls: []v1beta1.Deployment{
 				{
-					ObjectMeta: v1.ObjectMeta{
-						Name:       "depl1",
-						Namespace:  "ns1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "depl1",
+						Namespace: "ns1",
+						Labels: map[string]string{
+							"app": "example1",
+						},
 						Generation: 21,
 					},
 					Status: v1beta1.DeploymentStatus{
@@ -100,9 +105,12 @@ func TestDeploymentCollector(t *testing.T) {
 						},
 					},
 				}, {
-					ObjectMeta: v1.ObjectMeta{
-						Name:       "depl2",
-						Namespace:  "ns2",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "depl2",
+						Namespace: "ns2",
+						Labels: map[string]string{
+							"app": "example2",
+						},
 						Generation: 14,
 					},
 					Status: v1beta1.DeploymentStatus{
@@ -136,6 +144,8 @@ func TestDeploymentCollector(t *testing.T) {
 				kube_deployment_status_replicas_unavailable{namespace="ns2",deployment="depl2"} 0
 				kube_deployment_status_replicas_updated{namespace="ns1",deployment="depl1"} 2
 				kube_deployment_status_replicas_updated{namespace="ns2",deployment="depl2"} 1
+				kube_deployment_labels{label_app="example1",namespace="ns1",deployment="depl1"} 1
+				kube_deployment_labels{label_app="example2",namespace="ns2",deployment="depl2"} 1
 			`,
 		},
 	}
