@@ -12,10 +12,10 @@ deps:
 	go get github.com/tools/godep
 
 build: clean deps
-	$(COMMONENVVAR) $(BUILDENVVAR) godep go build -o kube-state-metrics 
+	$(COMMONENVVAR) $(BUILDENVVAR) /tmp/bin/godep go build -o kube-state-metrics 
 
 test-unit: clean deps build
-	$(COMMONENVVAR) $(TESTENVVAR) godep go test --race $(FLAGS) $(PKGS)
+	$(COMMONENVVAR) $(TESTENVVAR) ./godep go test --race $(FLAGS) $(PKGS)
 
 container: build
 	docker build -t ${REGISTRY}/kube-state-metrics:$(TAG) .
